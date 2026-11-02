@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Bench</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..800&family=Bodoni+Moda:opsz,wght@6..96,500..700&family=DM+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --void: #0A090C;
+    --ground: #0E0D12;
+    --panel: #16151C;
+    --raised: #1E1C26;
+    --hair: #2B2833;
+    --text: #EFEBE4;
+    --soft: #9C96A8;
+    --faint: #6B6578;
+    --amber: #E3A33E;
+    --cool: #8AA3C4;
+    --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --didone: "Bodoni Moda", Didot, "Times New Roman", serif;
+    --mono: "DM Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--void); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 820px; margin: 0 auto; padding-left: 22px; padding-right: 22px; }
+  .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  /* ---------- intro ---------- */
+  .intro { padding-block: 72px 34px; display: flex; flex-direction: column; gap: 16px; }
+  .kicker { margin: 0; font-size: 12px; color: var(--amber); font-weight: 600; }
+  .intro h1, .wall-intro h2 {
+    margin: 0; font-family: var(--didone); font-weight: 600;
+    font-size: clamp(28px, 5.4vw, 46px); line-height: 1.1; text-wrap: balance;
+  }
+  /* each word of the headline takes a random face on hover */
+  .shuffle-title .w { display: inline-block; cursor: default; transition: color 160ms ease; }
+  .shuffle-title .w:hover { color: var(--amber); }
+  .intro p.lede, .wall-intro p { margin: 0; font-size: 14px; line-height: 1.7; color: var(--soft); max-width: 54ch; }
+
+  /* ---------- stage: you type straight onto it ---------- */
+  .stage { position: relative; background: var(--ground); border: 1px solid var(--hair); padding: 40px 28px 46px; }
+  .stage:focus-within { border-color: var(--faint); }
+  .stage textarea {
+    display: block; width: 100%; min-height: 1.2em; resize: none; overflow: hidden;
+    margin: 0; padding: 0; border: 0; background: transparent; color: var(--text);
+    caret-color: var(--amber); outline: none; overflow-wrap: break-word;
+  }
+  .stage textarea::placeholder { color: var(--faint); opacity: 1; }
+  .stage-foot {
+    position: absolute; left: 14px; right: 14px; bottom: 10px;
+    display: flex; justify-content: space-between; gap: 12px;
+    font-family: var(--mono); font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums;
+  }
+  .stage-foot .near { color: var(--amber); }
+  .stage-foot .loading { color: var(--cool); }
+
+  /* ---------- controls ---------- */
+  .controls {
+    margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 22px 28px; padding: 22px; background: var(--panel); border: 1px solid var(--hair);
+  }
+  .ctl { display: flex; flex-direction: column; gap: 9px; border: 0; margin: 0; padding: 0; min-width: 0; }
+  .ctl.wide { grid-column: 1 / -1; }
+  .ctl > legend, .ctl > .lbl { padding: 0; margin-bottom: 9px; font-size: 12px; font-weight: 600; color: var(--faint); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips label, .chip {
+    font: inherit; font-size: 12px; font-weight: 600; padding: 7px 11px;
+    color: var(--soft); background: var(--raised); border: 1px solid var(--hair);
+    cursor: pointer; user-select: none;
+  }
+  .chips label:hover, .chip:hover { color: var(--text); }
+  .chips input:checked + label, .chip[aria-pressed="true"] { color: var(--void); background: var(--amber); border-color: var(--amber); }
+  .chips input:focus-visible + label { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  /* font search */
+  .search { position: relative; }
+  .search input {
+    width: 100%; font: inherit; font-size: 15px; padding: 12px 14px;
+    color: var(--text); background: var(--void); border: 1px solid var(--hair); outline: none;
+  }
+  .search input:focus { border-color: var(--amber); }
+  .search input::placeholder { color: var(--faint); }
+  .results {
+    list-style: none; margin: 6px 0 0; padding: 0; max-height: 360px; overflow-y: auto;
+    border: 1px solid var(--hair); background: var(--void);
+  }
+  .results[hidden] { display: none; }
+  .results li {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+    padding: 11px 14px; border-bottom: 1px solid var(--panel); cursor: pointer;
+  }
+  .results li:last-child { border-bottom: 0; }
+  .results li[aria-selected="true"], .results li:hover { background: var(--raised); }
+  .results .sample { font-size: 22px; line-height: 1.15; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .results .cat { flex: none; font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+  .results .none { cursor: default; color: var(--soft); font-size: 13px; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .current { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--soft); }
+  .current strong { color: var(--text); font-weight: 600; }
+  .link-btn { font: inherit; font-size: 12px; padding: 0; color: var(--cool); background: none; border: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .link-btn:hover { color: var(--text); }
+
+
+  #bench { padding-bottom: 96px; }
+</style>
+</head>
+<body>
+<main>
+  <section class="intro wrap">
+    <p class="kicker">From an interview with Paul Carlos</p>
+    <h1 class="shuffle-title" id="title">He wouldn’t tell me what good typography looks like. So set it yourself.</h1>
+    <p class="lede">Write one line — a reaction, a review, your own answer to the wrong question. Pick any Google font and set it the way you think it should look.</p>
+  </section>
+
+  <section class="wrap" id="bench" aria-label="The Bench">
+    <div class="stage">
+      <label class="vh" for="line">Your line</label>
+      <textarea id="line" rows="1" maxlength="80" placeholder="It’s still about communication." spellcheck="true"></textarea>
+      <div class="stage-foot"><span id="fontnote" aria-live="polite"></span><span id="count">0 / 80</span></div>
+    </div>
+
+    <div class="controls" id="controls">
+      <div class="ctl wide">
+        <label class="lbl" for="fontq">Typeface — 1,900 Google fonts</label>
+        <div class="filters" role="group" aria-label="Filter by style">
+          <button type="button" class="chip" data-cat="" aria-pressed="true">All</button>
+          <button type="button" class="chip" data-cat="s" aria-pressed="false">Sans</button>
+          <button type="button" class="chip" data-cat="r" aria-pressed="false">Serif</button>
+          <button type="button" class="chip" data-cat="d" aria-pressed="false">Display</button>
+          <button type="button" class="chip" data-cat="h" aria-pressed="false">Handwriting</button>
+          <button type="button" class="chip" data-cat="m" aria-pressed="false">Mono</button>
+        </div>
+        <div class="search">
+          <input id="fontq" type="text" autocomplete="off" spellcheck="false" placeholder="Search fonts — try Bodoni, Inter, Caveat"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="results">
+          <ul class="results" id="results" role="listbox" aria-label="Matching fonts" hidden></ul>
+        </div>
+        <div class="current">
+          <span>Setting in <strong id="curname">Archivo</strong></span>
+          <button type="button" class="link-btn" id="shuffle">Surprise me</button>
+        </div>
+      </div>
+
+      <fieldset class="ctl">
+        <legend>Weight</legend>
+        <div class="chips" id="weights"></div>
+      </fieldset>
+
+      <fieldset class="ctl">
+        <legend>Size</legend>
+        <div class="chips">
+          <input class="vh" type="radio" name="size" id="s-s" value="s"><label for="s-s">Small</label>
+          <input class="vh" type="radio" name="size" id="s-m" value="m" checked><label for="s-m">Medium</label>
+          <input class="vh" type="radio" name="size" id="s-l" value="l"><label for="s-l">Large</label>
+        </div>
+      </fieldset>
+
+      <fieldset class="ctl">
+        <legend>Tracking</legend>
+        <div class="chips">
+          <input class="vh" type="radio" name="track" id="t-tight" value="tight"><label for="t-tight">Tight</label>
+          <input class="vh" type="radio" name="track" id="t-normal" value="normal" checked><label for="t-normal">Normal</label>
+          <input class="vh" type="radio" name="track" id="t-loose" value="loose"><label for="t-loose">Loose</label>
+        </div>
+      </fieldset>
+
+      <fieldset class="ctl">
+        <legend>Case</legend>
+        <div class="chips">
+          <input class="vh" type="radio" name="tcase" id="c-as" value="none" checked><label for="c-as">As typed</label>
+          <input class="vh" type="radio" name="tcase" id="c-upper" value="uppercase"><label for="c-upper">UPPER</label>
+          <input class="vh" type="radio" name="tcase" id="c-lower" value="lowercase"><label for="c-lower">lower</label>
+        </div>
+      </fieldset>
+
+      <fieldset class="ctl">
+        <legend>Align</legend>
+        <div class="chips">
+          <input class="vh" type="radio" name="align" id="a-left" value="left" checked><label for="a-left">Left</label>
+          <input class="vh" type="radio" name="align" id="a-center" value="center"><label for="a-center">Center</label>
+          <input class="vh" type="radio" name="align" id="a-right" value="right"><label for="a-right">Right</label>
+        </div>
+      </fieldset>
+    </div>
+  </section>
+</main>
+<script>const FONT_DATA = "ABeeZee|s|4\nAbel|s|4\nAbhaya Libre|r|4.5.6.7.8\nAboreto|d|4\nAbril Fatface|d|4\nAbyssinica SIL|r|4\nAclonica|s|4\nAcme|s|4\nActor|s|4\nAdamina|r|4\nADLaM Display|d|4\nAdvent Pro|s|1.2.3.4.5.6.7.8.9\nAfacad Flux|s|1.2.3.4.5.6.7.8.9\nAfacad|s|4.5.6.7\nAgbalumo|d|4\nAgdasima|s|4.7\nAgu Display|d|4\nAguafina Script|h|4\nAkatab|s|4.5.6.7.8.9\nAkaya Kanadaka|d|4\nAkaya Telivigala|d|4\nAkronim|d|4\nAkshar|s|3.4.5.6.7\nAladin|d|4\nAlan Sans|s|3.4.5.6.7.8.9\nAlata|s|4\nAlatsi|s|4\nAlbert Sans|s|1.2.3.4.5.6.7.8.9\nAldrich|s|4\nAlef|s|4.7\nAlegreya Sans SC|s|1.3.4.5.7.8.9\nAlegreya Sans|s|1.3.4.5.7.8.9\nAlegreya SC|r|4.5.7.8.9\nAlegreya|r|4.5.6.7.8.9\nAleo|r|1.2.3.4.5.6.7.8.9\nAlex Brush|h|4\nAlexandria|s|1.2.3.4.5.6.7.8.9\nAlfa Slab One|d|4\nAlice|r|4\nAlike Angular|r|4\nAlike|r|4\nAlkalami|r|4\nAlkatra|d|4.5.6.7\nAllan|d|4.7\nAllerta Stencil|s|4\nAllerta|s|4\nAllison|h|4\nAllura|h|4\nAlmarai|s|3.4.7.8\nAlmendra Display|d|4\nAlmendra SC|r|4\nAlmendra|r|4.7\nAlumni Sans Collegiate One|s|4\nAlumni Sans Inline One|d|4\nAlumni Sans Pinstripe|s|4\nAlumni Sans SC|s|1.2.3.4.5.6.7.8.9\nAlumni Sans|s|1.2.3.4.5.6.7.8.9\nAmarante|d|4\nAmaranth|s|4.7\nAmarna|s|1.2.3.4.5.6.7\nAmatic SC|h|4.7\nAmethysta|r|4\nAmiko|s|4.6.7\nAmiri Quran|r|4\nAmiri|r|4.7\nAmita|h|4.7\nAnaheim|s|4.5.6.7.8\nAncizar Sans|s|1.2.3.4.5.6.7.8.9\nAncizar Serif|r|3.4.5.6.7.8.9\nAndada Pro|r|4.5.6.7.8\nAndika|s|4.7\nAnek Bangla|s|1.2.3.4.5.6.7.8\nAnek Devanagari|s|1.2.3.4.5.6.7.8\nAnek Gujarati|s|1.2.3.4.5.6.7.8\nAnek Gurmukhi|s|1.2.3.4.5.6.7.8\nAnek Kannada|s|1.2.3.4.5.6.7.8\nAnek Latin|s|1.2.3.4.5.6.7.8\nAnek Malayalam|s|1.2.3.4.5.6.7.8\nAnek Odia|s|1.2.3.4.5.6.7.8\nAnek Tamil|s|1.2.3.4.5.6.7.8\nAnek Telugu|s|1.2.3.4.5.6.7.8\nAngkor|d|4\nAnnapurna SIL|r|4.7\nAnnie Use Your Telescope|h|4\nAnonymous Pro|m|4.7\nAnta|s|4\nAntic Didone|r|4\nAntic Slab|r|4\nAntic|s|4\nAnton SC|s|4\nAntonio|s|1.2.3.4.5.6.7\nAnton|s|4\nAnuphan|s|1.2.3.4.5.6.7\nAnybody|d|1.2.3.4.5.6.7.8.9\nAoboshi One|r|4\nAR One Sans|s|4.5.6.7\nArapey|r|4\nArbutus Slab|r|4\nArbutus|r|4\nArchitects Daughter|h|4\nArchivo Black|s|4\nArchivo Narrow|s|4.5.6.7\nArchivo|s|1.2.3.4.5.6.7.8.9\nAre You Serious|h|4\nAref Ruqaa Ink|r|4.7\nAref Ruqaa|r|4.7\nArima|d|1.2.3.4.5.6.7\nArimo|s|4.5.6.7\nArizonia|h|4\nArmata|s|4\nArsenal SC|s|4.7\nArsenal|s|4.7\nArtifika|r|4\nArvo|r|4.7\nArya|s|4.7\nAsap Condensed|s|2.3.4.5.6.7.8.9\nAsap|s|1.2.3.4.5.6.7.8.9\nAsar|r|4\nAsimovian|s|4\nAsset|d|4\nAssistant|s|2.3.4.5.6.7.8\nAsta Sans|s|3.4.5.6.7.8\nAstloch|d|4.7\nAsul|r|4.7\nAthiti|s|2.3.4.5.6.7\nAtkinson Hyperlegible Mono|s|2.3.4.5.6.7.8\nAtkinson Hyperlegible Next|s|2.3.4.5.6.7.8\nAtkinson Hyperlegible|s|4.7\nAtma|d|3.4.5.6.7\nAtomic Age|d|4\nAubrey|d|4\nAudiowide|d|4\nAutour One|d|4\nAverage Sans|s|4\nAverage|r|4\nAveria Gruesa Libre|d|4\nAveria Libre|d|3.4.7\nAveria Sans Libre|d|3.4.7\nAveria Serif Libre|d|3.4.7\nAzeret Mono|m|1.2.3.4.5.6.7.8.9\nB612 Mono|m|4.7\nB612|s|4.7\nBabylonica|h|4\nBacasime Antique|r|4\nBad Script|h|4\nBadeen Display|d|4\nBagel Fat One|d|4\nBahiana|d|4\nBahianita|d|4\nBai Jamjuree|s|2.3.4.5.6.7\nBakbak One|d|4\nBallet|h|4\nBaloo 2|d|4.5.6.7.8\nBaloo Bhai 2|d|4.5.6.7.8\nBaloo Bhaijaan 2|d|4.5.6.7.8\nBaloo Bhaina 2|d|4.5.6.7.8\nBaloo Chettan 2|d|4.5.6.7.8\nBaloo Da 2|d|4.5.6.7.8\nBaloo Paaji 2|d|4.5.6.7.8\nBaloo Tamma 2|d|4.5.6.7.8\nBaloo Tammudu 2|d|4.5.6.7.8\nBaloo Thambi 2|d|4.5.6.7.8\nBalsamiq Sans|d|4.7\nBalthazar|r|4\nBangers|d|4\nBarlow Condensed|s|1.2.3.4.5.6.7.8.9\nBarlow Semi Condensed|s|1.2.3.4.5.6.7.8.9\nBarlow|s|1.2.3.4.5.6.7.8.9\nBarriecito|d|4\nBarrio|d|4\nBasic|s|4\nBaskervville SC|r|4.5.6.7\nBaskervville|r|4.5.6.7\nBattambang|d|1.3.4.7.9\nBaumans|d|4\nBayon|s|4\nBBH Bartle|s|4\nBBH Bogle|s|4\nBBH Hegarty|s|4\nBe Vietnam Pro|s|1.2.3.4.5.6.7.8.9\nBeau Rivage|h|4\nBebas Neue|s|4\nBeiruti|s|2.3.4.5.6.7.8.9\nBelanosima|s|4.6.7\nBelgrano|r|4\nBellefair|r|4\nBelleza|s|4\nBellota Text|d|3.4.7\nBellota|d|3.4.7\nBenchNine|s|3.4.7\nBenne|r|4\nBentham|r|4\nBerkshire Swash|h|4\nBesley|r|4.5.6.7.8.9\nBeth Ellen|h|4\nBevan|r|4\nBhuTuka Expanded One|r|4\nBig Shoulders Inline|d|1.2.3.4.5.6.7.8.9\nBig Shoulders Stencil|d|1.2.3.4.5.6.7.8.9\nBig Shoulders|d|1.2.3.4.5.6.7.8.9\nBigelow Rules|d|4\nBigshot One|d|4\nBilbo Swash Caps|h|4\nBilbo|h|4\nBioRhyme Expanded|r|2.3.4.7.8\nBioRhyme|r|2.3.4.5.6.7.8\nBirthstone Bounce|h|4.5\nBirthstone|h|4\nBiryani|s|2.3.4.6.7.8.9\nBitcount Grid Double Ink|d|1.2.3.4.5.6.7.8.9\nBitcount Grid Double|d|1.2.3.4.5.6.7.8.9\nBitcount Grid Single Ink|d|1.2.3.4.5.6.7.8.9\nBitcount Grid Single|d|1.2.3.4.5.6.7.8.9\nBitcount Ink|d|1.2.3.4.5.6.7.8.9\nBitcount Prop Double Ink|d|1.2.3.4.5.6.7.8.9\nBitcount Prop Double|d|1.2.3.4.5.6.7.8.9\nBitcount Prop Single Ink|d|1.2.3.4.5.6.7.8.9\nBitcount Prop Single|d|1.2.3.4.5.6.7.8.9\nBitcount Single Ink|d|1.2.3.4.5.6.7.8.9\nBitcount Single|d|1.2.3.4.5.6.7.8.9\nBitcount|d|1.2.3.4.5.6.7.8.9\nBitter|r|1.2.3.4.5.6.7.8.9\nBIZ UDGothic|s|4.7\nBIZ UDMincho|r|4.7\nBIZ UDPGothic|s|4.7\nBIZ UDPMincho|r|4.7\nBlack And White Picture|d|4\nBlack Han Sans|s|4\nBlack Ops One|d|4\nBlaka Hollow|d|4\nBlaka Ink|d|4\nBlaka|d|4\nBlinker|s|1.2.3.4.6.7.8.9\nBodoni Moda SC|r|4.5.6.7.8.9\nBodoni Moda|r|4.5.6.7.8.9\nBokor|d|4\nBoldonse|d|4\nBona Nova SC|r|4.7\nBona Nova|r|4.7\nBonbon|h|4\nBonheur Royale|h|4\nBoogaloo|d|4\nBorel|h|4\nBowlby One SC|d|4\nBowlby One|d|4\nBraah One|s|4\nBrawler|r|4.7\nBree Serif|r|4\nBricolage Grotesque|s|2.3.4.5.6.7.8\nBruno Ace SC|d|4\nBruno Ace|d|4\nBrygada 1918|r|4.5.6.7\nBubblegum Sans|d|4\nBubbler One|s|4\nBuda|d|3\nBuenard|r|4.5.6.7\nBungee Hairline|d|4\nBungee Inline|d|4\nBungee Outline|d|4\nBungee Shade|d|4\nBungee Spice|d|4\nBungee Tint|d|4\nBungee|d|4\nButcherman|d|4\nButterfly Kids|h|4\nBytesized|s|4\nCabin Condensed|s|4.5.6.7\nCabin Sketch|d|4.7\nCabin|s|4.5.6.7\nCactus Classical Serif|r|4\nCaesar Dressing|d|4\nCagliostro|s|4\nCairo Play|s|2.3.4.5.6.7.8.9\nCairo|s|2.3.4.5.6.7.8.9\nCal Sans|s|4\nCaladea|r|4.7\nCalistoga|d|4\nCalligraffitti|h|4\nCambay|s|4.7\nCambo|r|4\nCandal|s|4\nCantarell|s|4.7\nCantata One|r|4\nCantora One|s|4\nCaprasimo|d|4\nCapriola|s|4\nCaramel|h|4\nCarattere|h|4\nCardo|r|4.7\nCarlito|s|4.7\nCarme|s|4\nCarrois Gothic SC|s|4\nCarrois Gothic|s|4\nCarter One|d|4\nCascadia Code|s|2.3.4.5.6.7\nCascadia Mono|s|2.3.4.5.6.7\nCastoro Titling|d|4\nCastoro|r|4\nCatamaran|s|1.2.3.4.5.6.7.8.9\nCaudex|r|4.7\nCause|h|1.2.3.4.5.6.7.8.9\nCaveat Brush|h|4\nCaveat|h|4.5.6.7\nCedarville Cursive|h|4\nCeviche One|d|4\nChakra Petch|s|3.4.5.6.7\nChanga One|d|4\nChanga|s|2.3.4.5.6.7.8\nChango|d|4\nCharis SIL|r|4.7\nCharmonman|h|4.7\nCharm|h|4.7\nChathura|s|1.3.4.7.8\nChau Philomene One|s|4\nChela One|d|4\nChelsea Market|d|4\nChenla|d|4\nCherish|h|4\nCherry Bomb One|d|4\nCherry Cream Soda|d|4\nCherry Swash|d|4.7\nChewy|d|4\nChicle|d|4\nChilanka|h|4\nChiron GoRound TC|s|2.3.4.5.6.7.8.9\nChiron Hei HK|s|2.3.4.5.6.7.8.9\nChiron Sung HK|r|2.3.4.5.6.7.8.9\nChivo Mono|m|1.2.3.4.5.6.7.8.9\nChivo|s|1.2.3.4.5.6.7.8.9\nChocolate Classical Sans|s|4\nChokokutai|d|4\nChonburi|d|4\nCinzel Decorative|d|4.7.9\nCinzel|r|4.5.6.7.8.9\nClicker Script|h|4\nClimate Crisis|d|4\nCoda|d|4.8\nCodystar|d|3.4\nCoiny|d|4\nCombo|d|4\nComfortaa|d|3.4.5.6.7\nComforter Brush|h|4\nComforter|h|4\nComic Neue|h|3.4.7\nComic Relief|d|4.7\nComing Soon|h|4\nComme|s|1.2.3.4.5.6.7.8.9\nCommissioner|s|1.2.3.4.5.6.7.8.9\nConcert One|d|4\nCondiment|h|4\nContent|d|4.7\nContrail One|d|4\nConvergence|s|4\nCookie|h|4\nCopse|r|4\nCoral Pixels|d|4\nCorben|d|4.7\nCorinthia|h|4.7\nCormorant Garamond|r|3.4.5.6.7\nCormorant Infant|r|3.4.5.6.7\nCormorant SC|r|3.4.5.6.7\nCormorant Unicase|r|3.4.5.6.7\nCormorant Upright|r|3.4.5.6.7\nCormorant|r|3.4.5.6.7\nCossette Texte|s|4.7\nCossette Titre|s|4.7\nCourgette|h|4\nCourier Prime|m|4.7\nCousine|m|4.7\nCoustard|r|4.9\nCovered By Your Grace|h|4\nCrafty Girls|h|4\nCreepster|d|4\nCrete Round|r|4\nCrimson Pro|r|2.3.4.5.6.7.8.9\nCrimson Text|r|4.6.7\nCroissant One|d|4\nCrushed|d|4\nCuprum|s|4.5.6.7\nCute Font|d|4\nCutive Mono|m|4\nCutive|r|4\nDai Banna SIL|r|3.4.5.6.7\nDamion|h|4\nDancing Script|h|4.5.6.7\nDanfo|r|4\nDangrek|d|4\nDarker Grotesque|s|3.4.5.6.7.8.9\nDarumadrop One|d|4\nDavid Libre|r|4.5.7\nDawning of a New Day|h|4\nDays One|s|4\nDekko|h|4\nDela Gothic One|d|4\nDelicious Handrawn|h|4\nDelius Swash Caps|h|4\nDelius Unicase|h|4.7\nDelius|h|4\nDella Respira|r|4\nDenk One|s|4\nDevonshire|h|4\nDhurjati|s|4\nDidact Gothic|s|4\nDiphylleia|r|4\nDiplomata SC|d|4\nDiplomata|d|4\nDM Mono|m|3.4.5\nDM Sans|s|1.2.3.4.5.6.7.8.9\nDM Serif Display|r|4\nDM Serif Text|r|4\nDo Hyeon|s|4\nDokdo|d|4\nDomine|r|4.5.6.7\nDonegal One|r|4\nDongle|s|3.4.7\nDoppio One|s|4\nDorsa|s|4\nDosis|s|2.3.4.5.6.7.8\nDotGothic16|s|4\nDoto|s|1.2.3.4.5.6.7.8.9\nDr Sugiyama|h|4\nDuru Sans|s|4\nDynalight|d|4\nDynaPuff|d|4.5.6.7\nEagle Lake|h|4\nEast Sea Dokdo|h|4\nEater|d|4\nEB Garamond|r|4.5.6.7.8\nEconomica|s|4.7\nEczar|r|4.5.6.7.8\nEdu AU VIC WA NT Arrows|h|4.5.6.7\nEdu AU VIC WA NT Dots|h|4.5.6.7\nEdu AU VIC WA NT Guides|h|4.5.6.7\nEdu AU VIC WA NT Hand|h|4.5.6.7\nEdu AU VIC WA NT Pre|h|4.5.6.7\nEdu NSW ACT Cursive|h|4.5.6.7\nEdu NSW ACT Foundation|h|4.5.6.7\nEdu NSW ACT Hand Pre|h|4.5.6.7\nEdu QLD Beginner|h|4.5.6.7\nEdu QLD Hand|h|4.5.6.7\nEdu SA Beginner|h|4.5.6.7\nEdu SA Hand|h|4.5.6.7\nEdu TAS Beginner|h|4.5.6.7\nEdu VIC WA NT Beginner|h|4.5.6.7\nEdu VIC WA NT Hand Pre|h|4.5.6.7\nEdu VIC WA NT Hand|h|4.5.6.7\nEl Messiri|s|4.5.6.7\nElectrolize|s|4\nElms Sans|s|1.2.3.4.5.6.7.8.9\nElsie Swash Caps|d|4.9\nElsie|d|4.9\nEmblema One|d|4\nEmilys Candy|d|4\nEncode Sans Condensed|s|1.2.3.4.5.6.7.8.9\nEncode Sans Expanded|s|1.2.3.4.5.6.7.8.9\nEncode Sans SC|s|1.2.3.4.5.6.7.8.9\nEncode Sans Semi Condensed|s|1.2.3.4.5.6.7.8.9\nEncode Sans Semi Expanded|s|1.2.3.4.5.6.7.8.9\nEncode Sans|s|1.2.3.4.5.6.7.8.9\nEngagement|h|4\nEnglebert|s|4\nEnriqueta|r|4.5.6.7\nEphesis|h|4\nEpilogue|s|1.2.3.4.5.6.7.8.9\nEpunda Sans|s|3.4.5.6.7.8.9\nEpunda Slab|r|3.4.5.6.7.8.9\nErica One|d|4\nEsteban|r|4\nEstonia|h|4\nEuphoria Script|h|4\nEwert|d|4\nExile|d|4\nExo 2|s|1.2.3.4.5.6.7.8.9\nExo|s|1.2.3.4.5.6.7.8.9\nExpletus Sans|d|4.5.6.7\nExplora|h|4\nFaculty Glyphic|s|4\nFahkwang|s|2.3.4.5.6.7\nFamiljen Grotesk|s|4.5.6.7\nFanwood Text|r|4\nFarro|s|3.4.5.7\nFarsan|d|4\nFascinate Inline|d|4\nFascinate|d|4\nFaster One|d|4\nFasthand|d|4\nFauna One|r|4\nFaustina|r|3.4.5.6.7.8\nFederant|d|4\nFedero|s|4\nFelipa|h|4\nFenix|r|4\nFestive|h|4\nFigtree|s|3.4.5.6.7.8.9\nFinger Paint|d|4\nFinlandica|s|4.5.6.7\nFira Code|m|3.4.5.6.7\nFira Mono|m|4.5.7\nFira Sans Condensed|s|1.2.3.4.5.6.7.8.9\nFira Sans Extra Condensed|s|1.2.3.4.5.6.7.8.9\nFira Sans|s|1.2.3.4.5.6.7.8.9\nFjalla One|s|4\nFjord One|r|4\nFlamenco|d|3.4\nFlavors|d|4\nFleur De Leah|h|4\nFlow Block|d|4\nFlow Circular|d|4\nFlow Rounded|d|4\nFoldit|d|1.2.3.4.5.6.7.8.9\nFondamento|h|4\nFontdiner Swanky|d|4\nForum|d|4\nFragment Mono|m|4\nFrancois One|s|4\nFrank Ruhl Libre|r|3.4.5.6.7.8.9\nFraunces|r|1.2.3.4.5.6.7.8.9\nFreckle Face|d|4\nFredericka the Great|d|4\nFredoka|s|3.4.5.6.7\nFreehand|d|4\nFreeman|d|4\nFresca|s|4\nFrijole|d|4\nFruktur|d|4\nFugaz One|d|4\nFuggles|h|4\nFunnel Display|d|3.4.5.6.7.8\nFunnel Sans|s|3.4.5.6.7.8\nFustat|s|2.3.4.5.6.7.8\nFuzzy Bubbles|h|4.7\nGa Maamli|d|4\nGabarito|d|4.5.6.7.8.9\nGabriela|r|4\nGaegu|h|3.4.7\nGafata|s|4\nGajraj One|d|4\nGalada|d|4\nGaldeano|s|4\nGalindo|d|4\nGamja Flower|h|4\nGantari|s|1.2.3.4.5.6.7.8.9\nGasoek One|s|4\nGayathri|s|1.4.7\nGeist Mono|m|1.2.3.4.5.6.7.8.9\nGeist|s|1.2.3.4.5.6.7.8.9\nGelasio|r|4.5.6.7\nGemunu Libre|s|2.3.4.5.6.7.8\nGenos|s|1.2.3.4.5.6.7.8.9\nGentium Book Plus|r|4.7\nGentium Plus|r|4.7\nGeologica|s|1.2.3.4.5.6.7.8.9\nGeom|s|3.4.5.6.7.8.9\nGeorama|s|1.2.3.4.5.6.7.8.9\nGeostar Fill|d|4\nGeostar|d|4\nGeo|s|4\nGermania One|d|4\nGFS Didot|r|4\nGFS Neohellenic|s|4.7\nGideon Roman|d|4\nGidole|s|4\nGidugu|s|4\nGilda Display|r|4\nGirassol|d|4\nGive You Glory|h|4\nGlass Antiqua|d|4\nGlegoo|r|4.7\nGloock|r|4\nGloria Hallelujah|h|4\nGlory|s|1.2.3.4.5.6.7.8\nGluten|d|1.2.3.4.5.6.7.8.9\nGoblin One|d|4\nGochi Hand|h|4\nGoldman|d|4.7\nGolos Text|s|4.5.6.7.8.9\nGoogle Sans Code|m|3.4.5.6.7.8\nGoogle Sans Flex|s|1.2.3.4.5.6.7.8.9\nGoogle Sans|s|4.5.6.7\nGorditas|d|4.7\nGothic A1|s|1.2.3.4.5.6.7.8.9\nGotu|s|4\nGoudy Bookletter 1911|r|4\nGowun Batang|r|4.7\nGowun Dodum|s|4\nGraduate|r|4\nGrand Hotel|h|4\nGrandiflora One|r|4\nGrandstander|d|1.2.3.4.5.6.7.8.9\nGrape Nuts|h|4\nGravitas One|d|4\nGreat Vibes|h|4\nGrechen Fuemen|h|4\nGrenze Gotisch|d|1.2.3.4.5.6.7.8.9\nGrenze|r|1.2.3.4.5.6.7.8.9\nGrey Qo|h|4\nGriffy|d|4\nGruppo|s|4\nGudea|s|4.7\nGugi|d|4\nGulzar|r|4\nGupter|r|4.5.7\nGurajada|s|4\nGwendolyn|h|4.7\nHabibi|r|4\nHachi Maru Pop|h|4\nHahmlet|r|1.2.3.4.5.6.7.8.9\nHalant|r|3.4.5.6.7\nHammersmith One|s|4\nHanalei Fill|d|4\nHanalei|d|4\nHandjet|d|1.2.3.4.5.6.7.8.9\nHandlee|h|4\nHanken Grotesk|s|1.2.3.4.5.6.7.8.9\nHanuman|r|1.2.3.4.5.6.7.8.9\nHappy Monkey|d|4\nHarmattan|s|4.5.6.7\nHeadland One|r|4\nHedvig Letters Sans|s|4\nHedvig Letters Serif|r|4\nHeebo|s|1.2.3.4.5.6.7.8.9\nHenny Penny|d|4\nHepta Slab|r|1.2.3.4.5.6.7.8.9\nHerr Von Muellerhoff|h|4\nHi Melody|h|4\nHina Mincho|r|4\nHind Guntur|s|3.4.5.6.7\nHind Madurai|s|3.4.5.6.7\nHind Mysuru|s|3.4.5.6.7\nHind Siliguri|s|3.4.5.6.7\nHind Vadodara|s|3.4.5.6.7\nHind|s|3.4.5.6.7\nHoltwood One SC|r|4\nHomemade Apple|h|4\nHomenaje|s|4\nHonk|d|4\nHost Grotesk|s|3.4.5.6.7.8\nHubballi|s|4\nHubot Sans|s|2.3.4.5.6.7.8.9\nHuninn|s|4\nHurricane|h|4\nIansui|h|4\nIbarra Real Nova|r|4.5.6.7\nIBM Plex Mono|m|1.2.3.4.5.6.7\nIBM Plex Sans Arabic|s|1.2.3.4.5.6.7\nIBM Plex Sans Condensed|s|1.2.3.4.5.6.7\nIBM Plex Sans Devanagari|s|1.2.3.4.5.6.7\nIBM Plex Sans Hebrew|s|1.2.3.4.5.6.7\nIBM Plex Sans JP|s|1.2.3.4.5.6.7\nIBM Plex Sans KR|s|1.2.3.4.5.6.7\nIBM Plex Sans Thai Looped|s|1.2.3.4.5.6.7\nIBM Plex Sans Thai|s|1.2.3.4.5.6.7\nIBM Plex Sans|s|1.2.3.4.5.6.7\nIBM Plex Serif|r|1.2.3.4.5.6.7\nIceberg|d|4\nIceland|d|4\nIM Fell Double Pica SC|r|4\nIM Fell Double Pica|r|4\nIM Fell DW Pica SC|r|4\nIM Fell DW Pica|r|4\nIM Fell English SC|r|4\nIM Fell English|r|4\nIM Fell French Canon SC|r|4\nIM Fell French Canon|r|4\nIM Fell Great Primer SC|r|4\nIM Fell Great Primer|r|4\nImbue|r|1.2.3.4.5.6.7.8.9\nImperial Script|h|4\nImprima|s|4\nInclusive Sans|s|3.4.5.6.7\nInconsolata|m|2.3.4.5.6.7.8.9\nInder|s|4\nIndie Flower|h|4\nIngrid Darling|h|4\nInika|r|4.7\nInknut Antiqua|r|3.4.5.6.7.8.9\nInria Sans|s|3.4.7\nInria Serif|r|3.4.7\nInspiration|h|4\nInstrument Sans|s|4.5.6.7\nInstrument Serif|r|4\nIntel One Mono|m|3.4.5.6.7\nInter Tight|s|1.2.3.4.5.6.7.8.9\nInter|s|1.2.3.4.5.6.7.8.9\nIrish Grover|d|4\nIsland Moments|h|4\nIstok Web|s|4.7\nItaliana|s|4\nItalianno|h|4\nItim|h|4\nJacquard 12 Charted|d|4\nJacquard 12|d|4\nJacquard 24 Charted|d|4\nJacquard 24|d|4\nJacquarda Bastarda 9 Charted|d|4\nJacquarda Bastarda 9|d|4\nJacques Francois Shadow|d|4\nJacques Francois|r|4\nJaini Purva|d|4\nJaini|d|4\nJaldi|s|4.7\nJaro|s|4\nJersey 10 Charted|d|4\nJersey 10|d|4\nJersey 15 Charted|d|4\nJersey 15|d|4\nJersey 20 Charted|d|4\nJersey 20|d|4\nJersey 25 Charted|d|4\nJersey 25|d|4\nJetBrains Mono|m|1.2.3.4.5.6.7.8\nJim Nightshade|h|4\nJoan|r|4\nJockey One|s|4\nJolly Lodger|d|4\nJomhuria|d|4\nJomolhari|r|4\nJosefin Sans|s|1.2.3.4.5.6.7\nJosefin Slab|r|1.2.3.4.5.6.7\nJost|s|1.2.3.4.5.6.7.8.9\nJoti One|d|4\nJua|s|4\nJudson|r|4.7\nJulee|h|4\nJulius Sans One|s|4\nJunge|r|4\nJura|s|3.4.5.6.7\nJust Another Hand|h|4\nJust Me Again Down Here|h|4\nK2D|s|1.2.3.4.5.6.7.8\nKablammo|d|4\nKadwa|r|4.7\nKaisei Decol|r|4.5.7\nKaisei HarunoUmi|r|4.5.7\nKaisei Opti|r|4.5.7\nKaisei Tokumin|r|4.5.7.8\nKalam|h|3.4.7\nKalnia Glaze|d|1.2.3.4.5.6.7\nKalnia|r|1.2.3.4.5.6.7\nKameron|r|4.5.6.7\nKanchenjunga|s|4.5.6.7\nKanit|s|1.2.3.4.5.6.7.8.9\nKantumruy Pro|s|1.2.3.4.5.6.7\nKapakana|h|3.4\nKarantina|d|3.4.7\nKarla Tamil Inclined|s|4.7\nKarla Tamil Upright|s|4.7\nKarla|s|2.3.4.5.6.7.8\nKarma|r|3.4.5.6.7\nKatibeh|d|4\nKaushan Script|h|4\nKavivanar|h|4\nKavoon|d|4\nKay Pho Du|r|4.5.6.7\nKdam Thmor Pro|s|4\nKeania One|d|4\nKedebideri|s|4.5.6.7.8.9\nKelly Slab|d|4\nKenia|d|4\nKhand|s|3.4.5.6.7\nKhmer|s|4\nKhula|s|3.4.6.7.8\nKings|h|4\nKirang Haerang|d|4\nKite One|s|4\nKiwi Maru|r|3.4.5\nKlee One|h|4.6\nKnewave|d|4\nKodchasan|s|2.3.4.5.6.7\nKode Mono|m|4.5.6.7\nKoh Santepheap|r|1.3.4.7.9\nKoHo|s|2.3.4.5.6.7\nKolker Brush|h|4\nKonkhmer Sleokchher|d|4\nKosugi Maru|s|4\nKosugi|s|4\nKotta One|r|4\nKoulen|d|4\nKranky|d|4\nKreon|r|3.4.5.6.7\nKristi|h|4\nKrona One|s|4\nKrub|s|2.3.4.5.6.7\nKufam|s|4.5.6.7.8.9\nKulim Park|s|2.3.4.6.7\nKumar One Outline|d|4\nKumar One|d|4\nKumbh Sans|s|1.2.3.4.5.6.7.8.9\nKurale|r|4\nLa Belle Aurore|h|4\nLabrada|r|1.2.3.4.5.6.7.8.9\nLacquer|d|4\nLaila|r|3.4.5.6.7\nLakki Reddy|h|4\nLalezar|s|4\nLancelot|d|4\nLangar|d|4\nLateef|r|2.3.4.5.6.7.8\nLato|s|1.3.4.7.9\nLavishly Yours|h|4\nLeague Gothic|s|4\nLeague Script|h|4\nLeague Spartan|s|1.2.3.4.5.6.7.8.9\nLeckerli One|h|4\nLedger|r|4\nLekton|m|4.7\nLemonada|d|3.4.5.6.7\nLemon|d|4\nLexend Deca|s|1.2.3.4.5.6.7.8.9\nLexend Exa|s|1.2.3.4.5.6.7.8.9\nLexend Giga|s|1.2.3.4.5.6.7.8.9\nLexend Mega|s|1.2.3.4.5.6.7.8.9\nLexend Peta|s|1.2.3.4.5.6.7.8.9\nLexend Tera|s|1.2.3.4.5.6.7.8.9\nLexend Zetta|s|1.2.3.4.5.6.7.8.9\nLexend|s|1.2.3.4.5.6.7.8.9\nLibertinus Keyboard|d|4\nLibertinus Math|d|4\nLibertinus Mono|m|4\nLibertinus Sans|s|4.7\nLibertinus Serif Display|d|4\nLibertinus Serif|r|4.6.7\nLibre Barcode 128 Text|d|4\nLibre Barcode 128|d|4\nLibre Barcode 39 Extended Text|d|4\nLibre Barcode 39 Extended|d|4\nLibre Barcode 39 Text|d|4\nLibre Barcode 39|d|4\nLibre Barcode EAN13 Text|d|4\nLibre Baskerville|r|4.5.6.7\nLibre Bodoni|r|4.5.6.7\nLibre Caslon Display|r|4\nLibre Caslon Text|r|4.7\nLibre Franklin|s|1.2.3.4.5.6.7.8.9\nLicorice|h|4\nLife Savers|d|4.7.8\nLilex|m|1.2.3.4.5.6.7\nLilita One|d|4\nLily Script One|d|4\nLimelight|d|4\nLinden Hill|r|4\nLinefont|d|1.2.3.4.5.6.7.8.9\nLisu Bosa|r|2.3.4.5.6.7.8.9\nLiterata|r|2.3.4.5.6.7.8.9\nLiter|s|4\nLiu Jian Mao Cao|h|4\nLivvic|s|1.2.3.4.5.6.7.9\nLobster Two|d|4.7\nLobster|d|4\nLondrina Outline|d|4\nLondrina Shadow|d|4\nLondrina Sketch|d|4\nLondrina Solid|d|1.3.4.9\nLong Cang|h|4\nLora|r|4.5.6.7\nLove Light|h|4\nLove Ya Like A Sister|d|4\nLoved by the King|h|4\nLovers Quarrel|h|4\nLuckiest Guy|d|4\nLugrasimo|h|4\nLumanosimo|h|4\nLunasima|s|4.7\nLusitana|r|4.7\nLustria|r|4\nLuxurious Roman|d|4\nLuxurious Script|h|4\nLXGW Marker Gothic|s|4\nLXGW WenKai Mono TC|m|3.4.7\nLXGW WenKai TC|h|3.4.7\nM PLUS 1 Code|m|1.2.3.4.5.6.7\nM PLUS 1p|s|1.3.4.5.7.8.9\nM PLUS 1|s|1.2.3.4.5.6.7.8.9\nM PLUS 2|s|1.2.3.4.5.6.7.8.9\nM PLUS Code Latin|s|1.2.3.4.5.6.7\nM PLUS Rounded 1c|s|1.3.4.5.7.8.9\nMa Shan Zheng|h|4\nMacondo Swash Caps|d|4\nMacondo|d|4\nMada|s|2.3.4.5.6.7.8.9\nMadimi One|s|4\nMagra|s|4.7\nMaiden Orange|r|4\nMaitree|r|2.3.4.5.6.7\nMajor Mono Display|m|4\nMako|s|4\nMali|h|2.3.4.5.6.7\nMallanna|s|4\nManame|r|4\nMandali|s|4\nManjari|s|1.4.7\nManrope|s|2.3.4.5.6.7.8\nMansalva|h|4\nManuale|r|3.4.5.6.7.8\nManufacturing Consent|d|4\nMarcellus SC|r|4\nMarcellus|r|4\nMarck Script|h|4\nMargarine|d|4\nMarhey|d|3.4.5.6.7\nMarkazi Text|r|4.5.6.7\nMarko One|r|4\nMarmelad|s|4\nMartel Sans|s|2.3.4.6.7.8.9\nMartel|r|2.3.4.6.7.8.9\nMartian Mono|m|1.2.3.4.5.6.7.8\nMarvel|s|4.7\nMatangi|s|3.4.5.6.7.8.9\nMate SC|r|4\nMatemasie|s|4\nMate|r|4\nMaven Pro|s|4.5.6.7.8.9\nMcLaren|d|4\nMea Culpa|h|4\nMeddon|h|4\nMedievalSharp|d|4\nMedula One|d|4\nMeera Inimai|s|4\nMegrim|d|4\nMeie Script|h|4\nMenbere|s|1.2.3.4.5.6.7\nMeow Script|h|4\nMerienda|h|3.4.5.6.7.8.9\nMerriweather Sans|s|3.4.5.6.7.8\nMerriweather|r|3.4.5.6.7.8.9\nMetal Mania|d|4\nMetal|d|4\nMetamorphous|d|4\nMetrophobic|s|4\nMichroma|s|4\nMicro 5 Charted|d|4\nMicro 5|d|4\nMilonga|d|4\nMiltonian Tattoo|d|4\nMiltonian|d|4\nMina|s|4.7\nMingzat|s|4\nMiniver|d|4\nMiriam Libre|s|4.5.6.7\nMirza|r|4.5.6.7\nMiss Fajardose|h|4\nMitr|s|2.3.4.5.6.7\nMochiy Pop One|s|4\nMochiy Pop P One|s|4\nModak|d|4\nModern Antiqua|d|4\nModerustic|s|3.4.5.6.7.8\nMogra|d|4\nMohave|s|3.4.5.6.7\nMoirai One|d|4\nMolengo|s|4\nMomo Signature|s|4\nMomo Trust Display|s|4\nMomo Trust Sans|s|2.3.4.5.6.7.8\nMona Sans|s|2.3.4.5.6.7.8.9\nMonda|s|4.5.6.7\nMonofett|m|4\nMonomakh|d|4\nMonomaniac One|s|4\nMonoton|d|4\nMonsieur La Doulaise|h|4\nMontaga|r|4\nMontagu Slab|r|1.2.3.4.5.6.7\nMonteCarlo|h|4\nMontez|h|4\nMontserrat Alternates|s|1.2.3.4.5.6.7.8.9\nMontserrat Underline|s|1.2.3.4.5.6.7.8.9\nMontserrat|s|1.2.3.4.5.6.7.8.9\nMoo Lah Lah|d|4\nMooli|s|4\nMoon Dance|h|4\nMoulpali|s|4\nMoul|d|4\nMountains of Christmas|d|4.7\nMouse Memoirs|s|4\nMozilla Headline|s|2.3.4.5.6.7\nMozilla Text|s|2.3.4.5.6.7\nMr Bedfort|h|4\nMr Dafoe|h|4\nMr De Haviland|h|4\nMrs Saint Delafield|h|4\nMrs Sheppards|h|4\nMs Madi|h|4\nMukta Mahee|s|2.3.4.5.6.7.8\nMukta Malar|s|2.3.4.5.6.7.8\nMukta Vaani|s|2.3.4.5.6.7.8\nMukta|s|2.3.4.5.6.7.8\nMulish|s|2.3.4.5.6.7.8.9\nMurecho|s|1.2.3.4.5.6.7.8.9\nMuseoModerno|d|1.2.3.4.5.6.7.8.9\nMy Soul|h|4\nMynerve|h|4\nMystery Quest|d|4\nNabla|d|4\nNamdhinggo|r|4.5.6.7.8\nNanum Brush Script|h|4\nNanum Gothic Coding|h|4.7\nNanum Gothic|s|4.7.8\nNanum Myeongjo|r|4.7.8\nNanum Pen Script|h|4\nNarnoor|s|4.5.6.7.8\nNata Sans|s|1.2.3.4.5.6.7.8.9\nNational Park|s|2.3.4.5.6.7.8\nNeonderthaw|h|4\nNerko One|h|4\nNeucha|h|4\nNeuton|r|2.3.4.7.8\nNew Amsterdam|s|4\nNew Rocker|d|4\nNew Tegomin|r|4\nNews Cycle|s|4.7\nNewsreader|r|2.3.4.5.6.7.8\nNiconne|h|4\nNiramit|s|2.3.4.5.6.7\nNixie One|d|4\nNobile|s|4.5.7\nNokora|s|1.2.3.4.5.6.7.8.9\nNorican|h|4\nNosifer|d|4\nNotable|s|4\nNothing You Could Do|h|4\nNoticia Text|r|4.7\nNoto Color Emoji|s|4\nNoto Emoji|s|3.4.5.6.7\nNoto Kufi Arabic|s|1.2.3.4.5.6.7.8.9\nNoto Music|s|4\nNoto Naskh Arabic|r|4.5.6.7\nNoto Nastaliq Urdu|r|4.5.6.7\nNoto Rashi Hebrew|r|1.2.3.4.5.6.7.8.9\nNoto Sans Adlam Unjoined|s|4.5.6.7\nNoto Sans Adlam|s|4.5.6.7\nNoto Sans Anatolian Hieroglyphs|s|4\nNoto Sans Arabic|s|1.2.3.4.5.6.7.8.9\nNoto Sans Armenian|s|1.2.3.4.5.6.7.8.9\nNoto Sans Avestan|s|4\nNoto Sans Balinese|s|4.5.6.7\nNoto Sans Bamum|s|4.5.6.7\nNoto Sans Bassa Vah|s|4.5.6.7\nNoto Sans Batak|s|4\nNoto Sans Bengali|s|1.2.3.4.5.6.7.8.9\nNoto Sans Bhaiksuki|s|4\nNoto Sans Brahmi|s|4\nNoto Sans Buginese|s|4\nNoto Sans Buhid|s|4\nNoto Sans Canadian Aboriginal|s|1.2.3.4.5.6.7.8.9\nNoto Sans Carian|s|4\nNoto Sans Caucasian Albanian|s|4\nNoto Sans Chakma|s|4\nNoto Sans Cham|s|1.2.3.4.5.6.7.8.9\nNoto Sans Cherokee|s|1.2.3.4.5.6.7.8.9\nNoto Sans Chorasmian|s|4\nNoto Sans Coptic|s|4\nNoto Sans Cuneiform|s|4\nNoto Sans Cypriot|s|4\nNoto Sans Cypro Minoan|s|4\nNoto Sans Deseret|s|4\nNoto Sans Devanagari|s|1.2.3.4.5.6.7.8.9\nNoto Sans Display|s|1.2.3.4.5.6.7.8.9\nNoto Sans Duployan|s|4.7\nNoto Sans Egyptian Hieroglyphs|s|4\nNoto Sans Elbasan|s|4\nNoto Sans Elymaic|s|4\nNoto Sans Ethiopic|s|1.2.3.4.5.6.7.8.9\nNoto Sans Georgian|s|1.2.3.4.5.6.7.8.9\nNoto Sans Glagolitic|s|4\nNoto Sans Gothic|s|4\nNoto Sans Grantha|s|4\nNoto Sans Gujarati|s|1.2.3.4.5.6.7.8.9\nNoto Sans Gunjala Gondi|s|4.5.6.7\nNoto Sans Gurmukhi|s|1.2.3.4.5.6.7.8.9\nNoto Sans Hanifi Rohingya|s|4.5.6.7\nNoto Sans Hanunoo|s|4\nNoto Sans Hatran|s|4\nNoto Sans Hebrew|s|1.2.3.4.5.6.7.8.9\nNoto Sans HK|s|1.2.3.4.5.6.7.8.9\nNoto Sans Imperial Aramaic|s|4\nNoto Sans Indic Siyaq Numbers|s|4\nNoto Sans Inscriptional Pahlavi|s|4\nNoto Sans Inscriptional Parthian|s|4\nNoto Sans Javanese|s|4.5.6.7\nNoto Sans JP|s|1.2.3.4.5.6.7.8.9\nNoto Sans Kaithi|s|4\nNoto Sans Kannada|s|1.2.3.4.5.6.7.8.9\nNoto Sans Kawi|s|4.5.6.7\nNoto Sans Kayah Li|s|4.5.6.7\nNoto Sans Kharoshthi|s|4\nNoto Sans Khmer|s|1.2.3.4.5.6.7.8.9\nNoto Sans Khojki|s|4\nNoto Sans Khudawadi|s|4\nNoto Sans KR|s|1.2.3.4.5.6.7.8.9\nNoto Sans Lao Looped|s|1.2.3.4.5.6.7.8.9\nNoto Sans Lao|s|1.2.3.4.5.6.7.8.9\nNoto Sans Lepcha|s|4\nNoto Sans Limbu|s|4\nNoto Sans Linear A|s|4\nNoto Sans Linear B|s|4\nNoto Sans Lisu|s|4.5.6.7\nNoto Sans Lycian|s|4\nNoto Sans Lydian|s|4\nNoto Sans Mahajani|s|4\nNoto Sans Malayalam|s|1.2.3.4.5.6.7.8.9\nNoto Sans Mandaic|s|4\nNoto Sans Manichaean|s|4\nNoto Sans Marchen|s|4\nNoto Sans Masaram Gondi|s|4\nNoto Sans Math|s|4\nNoto Sans Mayan Numerals|s|4\nNoto Sans Medefaidrin|s|4.5.6.7\nNoto Sans Meetei Mayek|s|1.2.3.4.5.6.7.8.9\nNoto Sans Mende Kikakui|s|4\nNoto Sans Meroitic|s|4\nNoto Sans Miao|s|4\nNoto Sans Modi|s|4\nNoto Sans Mongolian|s|4\nNoto Sans Mono|s|1.2.3.4.5.6.7.8.9\nNoto Sans Mro|s|4\nNoto Sans Multani|s|4\nNoto Sans Myanmar|s|1.2.3.4.5.6.7.8.9\nNoto Sans Nabataean|s|4\nNoto Sans Nag Mundari|s|4.5.6.7\nNoto Sans Nandinagari|s|4\nNoto Sans New Tai Lue|s|4.5.6.7\nNoto Sans Newa|s|4\nNoto Sans NKo Unjoined|s|4.5.6.7\nNoto Sans NKo|s|4\nNoto Sans Nushu|s|4\nNoto Sans Ogham|s|4\nNoto Sans Ol Chiki|s|4.5.6.7\nNoto Sans Old Hungarian|s|4\nNoto Sans Old Italic|s|4\nNoto Sans Old North Arabian|s|4\nNoto Sans Old Permic|s|4\nNoto Sans Old Persian|s|4\nNoto Sans Old Sogdian|s|4\nNoto Sans Old South Arabian|s|4\nNoto Sans Old Turkic|s|4\nNoto Sans Oriya|s|1.2.3.4.5.6.7.8.9\nNoto Sans Osage|s|4\nNoto Sans Osmanya|s|4\nNoto Sans Pahawh Hmong|s|4\nNoto Sans Palmyrene|s|4\nNoto Sans Pau Cin Hau|s|4\nNoto Sans PhagsPa|s|4\nNoto Sans Phoenician|s|4\nNoto Sans Psalter Pahlavi|s|4\nNoto Sans Rejang|s|4\nNoto Sans Runic|s|4\nNoto Sans Samaritan|s|4\nNoto Sans Saurashtra|s|4\nNoto Sans SC|s|1.2.3.4.5.6.7.8.9\nNoto Sans Sharada|s|4\nNoto Sans Shavian|s|4\nNoto Sans Siddham|s|4\nNoto Sans SignWriting|s|4\nNoto Sans Sinhala|s|1.2.3.4.5.6.7.8.9\nNoto Sans Sogdian|s|4\nNoto Sans Sora Sompeng|s|4.5.6.7\nNoto Sans Soyombo|s|4\nNoto Sans Sundanese|s|4.5.6.7\nNoto Sans Sunuwar|s|4\nNoto Sans Syloti Nagri|s|4\nNoto Sans Symbols 2|s|4\nNoto Sans Symbols|s|1.2.3.4.5.6.7.8.9\nNoto Sans Syriac Eastern|s|1.2.3.4.5.6.7.8.9\nNoto Sans Syriac Western|s|1.2.3.4.5.6.7.8.9\nNoto Sans Syriac|s|1.2.3.4.5.6.7.8.9\nNoto Sans Tagalog|s|4\nNoto Sans Tagbanwa|s|4\nNoto Sans Tai Le|s|4\nNoto Sans Tai Tham|s|4.5.6.7\nNoto Sans Tai Viet|s|4\nNoto Sans Takri|s|4\nNoto Sans Tamil Supplement|s|4\nNoto Sans Tamil|s|1.2.3.4.5.6.7.8.9\nNoto Sans Tangsa|s|4.5.6.7\nNoto Sans TC|s|1.2.3.4.5.6.7.8.9\nNoto Sans Telugu|s|1.2.3.4.5.6.7.8.9\nNoto Sans Thaana|s|1.2.3.4.5.6.7.8.9\nNoto Sans Thai Looped|s|1.2.3.4.5.6.7.8.9\nNoto Sans Thai|s|1.2.3.4.5.6.7.8.9\nNoto Sans Tifinagh|s|4\nNoto Sans Tirhuta|s|4\nNoto Sans Ugaritic|s|4\nNoto Sans Vai|s|4\nNoto Sans Vithkuqi|s|4.5.6.7\nNoto Sans Wancho|s|4\nNoto Sans Warang Citi|s|4\nNoto Sans Yi|s|4\nNoto Sans Zanabazar Square|s|4\nNoto Sans|s|1.2.3.4.5.6.7.8.9\nNoto Serif Ahom|r|4\nNoto Serif Armenian|r|1.2.3.4.5.6.7.8.9\nNoto Serif Balinese|r|4\nNoto Serif Bengali|r|1.2.3.4.5.6.7.8.9\nNoto Serif Devanagari|r|1.2.3.4.5.6.7.8.9\nNoto Serif Display|r|1.2.3.4.5.6.7.8.9\nNoto Serif Dives Akuru|r|4\nNoto Serif Dogra|r|4\nNoto Serif Ethiopic|r|1.2.3.4.5.6.7.8.9\nNoto Serif Georgian|r|1.2.3.4.5.6.7.8.9\nNoto Serif Grantha|r|4\nNoto Serif Gujarati|r|1.2.3.4.5.6.7.8.9\nNoto Serif Gurmukhi|r|1.2.3.4.5.6.7.8.9\nNoto Serif Hebrew|r|1.2.3.4.5.6.7.8.9\nNoto Serif Hentaigana|r|2.3.4.5.6.7.8.9\nNoto Serif HK|r|2.3.4.5.6.7.8.9\nNoto Serif JP|r|2.3.4.5.6.7.8.9\nNoto Serif Kannada|r|1.2.3.4.5.6.7.8.9\nNoto Serif Khitan Small Script|r|4\nNoto Serif Khmer|r|1.2.3.4.5.6.7.8.9\nNoto Serif Khojki|r|4.5.6.7\nNoto Serif KR|r|2.3.4.5.6.7.8.9\nNoto Serif Lao|r|1.2.3.4.5.6.7.8.9\nNoto Serif Makasar|r|4\nNoto Serif Malayalam|r|1.2.3.4.5.6.7.8.9\nNoto Serif Myanmar|r|1.2.3.4.5.6.7.8.9\nNoto Serif NP Hmong|r|4.5.6.7\nNoto Serif Old Uyghur|r|4\nNoto Serif Oriya|r|4.5.6.7\nNoto Serif Ottoman Siyaq|r|4\nNoto Serif SC|r|2.3.4.5.6.7.8.9\nNoto Serif Sinhala|r|1.2.3.4.5.6.7.8.9\nNoto Serif Tamil|r|1.2.3.4.5.6.7.8.9\nNoto Serif Tangut|r|4\nNoto Serif TC|r|2.3.4.5.6.7.8.9\nNoto Serif Telugu|r|1.2.3.4.5.6.7.8.9\nNoto Serif Thai|r|1.2.3.4.5.6.7.8.9\nNoto Serif Tibetan|r|1.2.3.4.5.6.7.8.9\nNoto Serif Todhri|r|4\nNoto Serif Toto|r|4.5.6.7\nNoto Serif Vithkuqi|r|4.5.6.7\nNoto Serif Yezidi|r|4.5.6.7\nNoto Serif|r|1.2.3.4.5.6.7.8.9\nNoto Traditional Nushu|s|3.4.5.6.7\nNoto Znamenny Musical Notation|s|4\nNova Cut|d|4\nNova Flat|d|4\nNova Mono|m|4\nNova Oval|d|4\nNova Round|d|4\nNova Script|d|4\nNova Slim|d|4\nNova Square|d|4\nNTR|s|4\nNumans|s|4\nNunito Sans|s|2.3.4.5.6.7.8.9\nNunito|s|2.3.4.5.6.7.8.9\nNuosu SIL|s|4\nOdibee Sans|d|4\nOdor Mean Chey|r|4\nOffside|d|4\nOi|d|4\nOjuju|s|2.3.4.5.6.7.8\nOld Standard TT|r|4.7\nOldenburg|d|4\nOleo Script Swash Caps|d|4.7\nOleo Script|d|4.7\nOle|h|4\nOnest|s|1.2.3.4.5.6.7.8.9\nOooh Baby|h|4\nOpen Sans|s|3.4.5.6.7.8\nOranienbaum|r|4\nOrbitron|s|4.5.6.7.8.9\nOrbit|s|4\nOregano|d|4\nOrelega One|d|4\nOrienta|s|4\nOriginal Surfer|d|4\nOswald|s|2.3.4.5.6.7\nOutfit|s|1.2.3.4.5.6.7.8.9\nOver the Rainbow|h|4\nOverlock SC|d|4\nOverlock|d|4.7.9\nOverpass Mono|m|3.4.5.6.7\nOverpass|s|1.2.3.4.5.6.7.8.9\nOvo|r|4\nOxanium|d|2.3.4.5.6.7.8\nOxygen Mono|m|4\nOxygen|s|3.4.7\nPacifico|h|4\nPadauk|s|4.7\nPadyakke Expanded One|r|4\nPalanquin Dark|s|4.5.6.7\nPalanquin|s|1.2.3.4.5.6.7\nPalette Mosaic|d|4\nPangolin|h|4\nPaprika|d|4\nParastoo|r|4.5.6.7\nParisienne|h|4\nParkinsans|s|3.4.5.6.7.8\nPassero One|d|4\nPassion One|d|4.7.9\nPassions Conflict|h|4\nPathway Extreme|s|1.2.3.4.5.6.7.8.9\nPathway Gothic One|s|4\nPatrick Hand SC|h|4\nPatrick Hand|h|4\nPattaya|s|4\nPatua One|d|4\nPavanam|s|4\nPaytone One|s|4\nPeddana|r|4\nPeralta|r|4\nPermanent Marker|h|4\nPetemoss|h|4\nPetit Formal Script|h|4\nPetrona|r|1.2.3.4.5.6.7.8.9\nPhetsarath|s|4.7\nPhilosopher|s|4.7\nPhudu|d|3.4.5.6.7.8.9\nPiazzolla|r|1.2.3.4.5.6.7.8.9\nPiedra|d|4\nPinyon Script|h|4\nPirata One|d|4\nPixelify Sans|d|4.5.6.7\nPlaster|d|4\nPlatypi|r|3.4.5.6.7.8\nPlayball|d|4\nPlayfair Display SC|r|4.7.9\nPlayfair Display|r|4.5.6.7.8.9\nPlayfair|r|3.4.5.6.7.8.9\nPlaypen Sans Arabic|h|1.2.3.4.5.6.7.8\nPlaypen Sans Deva|h|1.2.3.4.5.6.7.8\nPlaypen Sans Hebrew|h|1.2.3.4.5.6.7.8\nPlaypen Sans Thai|h|1.2.3.4.5.6.7.8\nPlaypen Sans|h|1.2.3.4.5.6.7.8\nPlaywrite AR Guides|h|4\nPlaywrite AR|h|1.2.3.4\nPlaywrite AT Guides|h|4\nPlaywrite AT|h|1.2.3.4\nPlaywrite AU NSW Guides|h|4\nPlaywrite AU NSW|h|1.2.3.4\nPlaywrite AU QLD Guides|h|4\nPlaywrite AU QLD|h|1.2.3.4\nPlaywrite AU SA Guides|h|4\nPlaywrite AU SA|h|1.2.3.4\nPlaywrite AU TAS Guides|h|4\nPlaywrite AU TAS|h|1.2.3.4\nPlaywrite AU VIC Guides|h|4\nPlaywrite AU VIC|h|1.2.3.4\nPlaywrite BE VLG Guides|h|4\nPlaywrite BE VLG|h|1.2.3.4\nPlaywrite BE WAL Guides|h|4\nPlaywrite BE WAL|h|1.2.3.4\nPlaywrite BR Guides|h|4\nPlaywrite BR|h|1.2.3.4\nPlaywrite CA Guides|h|4\nPlaywrite CA|h|1.2.3.4\nPlaywrite CL Guides|h|4\nPlaywrite CL|h|1.2.3.4\nPlaywrite CO Guides|h|4\nPlaywrite CO|h|1.2.3.4\nPlaywrite CU Guides|h|4\nPlaywrite CU|h|1.2.3.4\nPlaywrite CZ Guides|h|4\nPlaywrite CZ|h|1.2.3.4\nPlaywrite DE Grund Guides|h|4\nPlaywrite DE Grund|h|1.2.3.4\nPlaywrite DE LA Guides|h|4\nPlaywrite DE LA|h|1.2.3.4\nPlaywrite DE SAS Guides|h|4\nPlaywrite DE SAS|h|1.2.3.4\nPlaywrite DE VA Guides|h|4\nPlaywrite DE VA|h|1.2.3.4\nPlaywrite DK Loopet Guides|h|4\nPlaywrite DK Loopet|h|1.2.3.4\nPlaywrite DK Uloopet Guides|h|4\nPlaywrite DK Uloopet|h|1.2.3.4\nPlaywrite ES Deco Guides|h|4\nPlaywrite ES Deco|h|1.2.3.4\nPlaywrite ES Guides|h|4\nPlaywrite ES|h|1.2.3.4\nPlaywrite FR Moderne Guides|h|4\nPlaywrite FR Moderne|h|1.2.3.4\nPlaywrite FR Trad Guides|h|4\nPlaywrite FR Trad|h|1.2.3.4\nPlaywrite GB J Guides|h|4\nPlaywrite GB J|h|1.2.3.4\nPlaywrite GB S Guides|h|4\nPlaywrite GB S|h|1.2.3.4\nPlaywrite HR Guides|h|4\nPlaywrite HR Lijeva Guides|h|4\nPlaywrite HR Lijeva|h|1.2.3.4\nPlaywrite HR|h|1.2.3.4\nPlaywrite HU Guides|h|4\nPlaywrite HU|h|1.2.3.4\nPlaywrite ID Guides|h|4\nPlaywrite ID|h|1.2.3.4\nPlaywrite IE Guides|h|4\nPlaywrite IE|h|1.2.3.4\nPlaywrite IN Guides|h|4\nPlaywrite IN|h|1.2.3.4\nPlaywrite IS Guides|h|4\nPlaywrite IS|h|1.2.3.4\nPlaywrite IT Moderna Guides|h|4\nPlaywrite IT Moderna|h|1.2.3.4\nPlaywrite IT Trad Guides|h|4\nPlaywrite IT Trad|h|1.2.3.4\nPlaywrite MX Guides|h|4\nPlaywrite MX|h|1.2.3.4\nPlaywrite NG Modern Guides|h|4\nPlaywrite NG Modern|h|1.2.3.4\nPlaywrite NL Guides|h|4\nPlaywrite NL|h|1.2.3.4\nPlaywrite NO Guides|h|4\nPlaywrite NO|h|1.2.3.4\nPlaywrite NZ Guides|h|4\nPlaywrite NZ|h|1.2.3.4\nPlaywrite PE Guides|h|4\nPlaywrite PE|h|1.2.3.4\nPlaywrite PL Guides|h|4\nPlaywrite PL|h|1.2.3.4\nPlaywrite PT Guides|h|4\nPlaywrite PT|h|1.2.3.4\nPlaywrite RO Guides|h|4\nPlaywrite RO|h|1.2.3.4\nPlaywrite SK Guides|h|4\nPlaywrite SK|h|1.2.3.4\nPlaywrite TZ Guides|h|4\nPlaywrite TZ|h|1.2.3.4\nPlaywrite US Modern Guides|h|4\nPlaywrite US Modern|h|1.2.3.4\nPlaywrite US Trad Guides|h|4\nPlaywrite US Trad|h|1.2.3.4\nPlaywrite VN Guides|h|4\nPlaywrite VN|h|1.2.3.4\nPlaywrite ZA Guides|h|4\nPlaywrite ZA|h|1.2.3.4\nPlay|s|4.7\nPlus Jakarta Sans|s|2.3.4.5.6.7.8\nPochaevsk|d|4\nPodkova|r|4.5.6.7.8\nPoetsen One|d|4\nPoiret One|d|4\nPoller One|d|4\nPoltawski Nowy|r|4.5.6.7\nPoly|r|4\nPompiere|d|4\nPonnala|d|4\nPonomar|d|4\nPontano Sans|s|3.4.5.6.7\nPoor Story|d|4\nPoppins|s|1.2.3.4.5.6.7.8.9\nPort Lligat Sans|s|4\nPort Lligat Slab|r|4\nPotta One|d|4\nPragati Narrow|s|4.7\nPraise|h|4\nPrata|r|4\nPreahvihear|s|4\nPress Start 2P|d|4\nPridi|r|2.3.4.5.6.7\nPrincess Sofia|h|4\nProciono|r|4\nPrompt|s|1.2.3.4.5.6.7.8.9\nProsto One|d|4\nProtest Guerrilla|d|4\nProtest Revolution|d|4\nProtest Riot|d|4\nProtest Strike|d|4\nProza Libre|s|4.5.6.7.8\nPT Mono|m|4\nPT Sans Caption|s|4.7\nPT Sans Narrow|s|4.7\nPT Sans|s|4.7\nPT Serif Caption|r|4\nPT Serif|r|4.7\nPublic Sans|s|1.2.3.4.5.6.7.8.9\nPuppies Play|h|4\nPuritan|s|4.7\nPurple Purse|d|4\nQahiri|s|4\nQuando|r|4\nQuantico|s|4.7\nQuattrocento Sans|s|4.7\nQuattrocento|r|4.7\nQuestrial|s|4\nQuicksand|s|3.4.5.6.7\nQuintessential|h|4\nQwigley|h|4\nQwitcher Grypen|h|4.7\nRacing Sans One|d|4\nRadio Canada Big|s|4.5.6.7\nRadio Canada|s|3.4.5.6.7\nRadley|r|4\nRajdhani|s|3.4.5.6.7\nRakkas|d|4\nRaleway Dots|d|4\nRaleway|s|1.2.3.4.5.6.7.8.9\nRamabhadra|s|4\nRamaraja|r|4\nRambla|s|4.7\nRammetto One|d|4\nRampart One|d|4\nRanchers|d|4\nRancho|h|4\nRanga|d|4.7\nRasa|r|3.4.5.6.7\nRationale|s|4\nRavi Prakash|d|4\nReadex Pro|s|2.3.4.5.6.7\nRecursive|s|3.4.5.6.7.8.9\nRed Hat Display|s|3.4.5.6.7.8.9\nRed Hat Mono|m|3.4.5.6.7\nRed Hat Text|s|3.4.5.6.7\nRed Rose|d|3.4.5.6.7\nRedacted Script|d|3.4.7\nRedacted|d|4\nReddit Mono|m|2.3.4.5.6.7.8.9\nReddit Sans Condensed|s|2.3.4.5.6.7.8.9\nReddit Sans|s|2.3.4.5.6.7.8.9\nRedressed|h|4\nReem Kufi Fun|s|4.5.6.7\nReem Kufi Ink|s|4\nReem Kufi|s|4.5.6.7\nReenie Beanie|h|4\nReggae One|d|4\nREM|s|1.2.3.4.5.6.7.8.9\nRethink Sans|s|4.5.6.7.8\nRevalia|d|4\nRhodium Libre|r|4\nRibeye Marrow|d|4\nRibeye|d|4\nRighteous|d|4\nRisque|d|4\nRoad Rage|d|4\nRoboto Condensed|s|1.2.3.4.5.6.7.8.9\nRoboto Flex|s|4\nRoboto Mono|m|1.2.3.4.5.6.7\nRoboto Serif|r|1.2.3.4.5.6.7.8.9\nRoboto Slab|r|1.2.3.4.5.6.7.8.9\nRoboto|s|1.2.3.4.5.6.7.8.9\nRochester|h|4\nRock 3D|d|4\nRock Salt|h|4\nRocknRoll One|s|4\nRokkitt|r|1.2.3.4.5.6.7.8.9\nRomanesco|h|4\nRopa Sans|s|4\nRosario|s|3.4.5.6.7\nRosarivo|r|4\nRouge Script|h|4\nRowdies|d|3.4.7\nRozha One|r|4\nRubik 80s Fade|d|4\nRubik Beastly|d|4\nRubik Broken Fax|d|4\nRubik Bubbles|d|4\nRubik Burned|d|4\nRubik Dirt|d|4\nRubik Distressed|d|4\nRubik Doodle Shadow|d|4\nRubik Doodle Triangles|d|4\nRubik Gemstones|d|4\nRubik Glitch Pop|d|4\nRubik Glitch|d|4\nRubik Iso|d|4\nRubik Lines|d|4\nRubik Maps|d|4\nRubik Marker Hatch|d|4\nRubik Maze|d|4\nRubik Microbe|d|4\nRubik Mono One|s|4\nRubik Moonrocks|d|4\nRubik Pixels|d|4\nRubik Puddles|d|4\nRubik Scribble|d|4\nRubik Spray Paint|d|4\nRubik Storm|d|4\nRubik Vinyl|d|4\nRubik Wet Paint|d|4\nRubik|s|3.4.5.6.7.8.9\nRuda|s|4.5.6.7.8.9\nRufina|r|4.7\nRuge Boogie|h|4\nRuluko|s|4\nRum Raisin|s|4\nRuslan Display|d|4\nRusso One|s|4\nRuthie|h|4\nRuwudu|r|4.5.6.7\nRye|d|4\nSacramento|h|4\nSahitya|r|4.7\nSail|d|4\nSaira Condensed|s|1.2.3.4.5.6.7.8.9\nSaira Extra Condensed|s|1.2.3.4.5.6.7.8.9\nSaira Semi Condensed|s|1.2.3.4.5.6.7.8.9\nSaira Stencil One|d|4\nSaira|s|1.2.3.4.5.6.7.8.9\nSalsa|d|4\nSanchez|r|4\nSancreek|d|4\nSankofa Display|s|4\nSansation|s|3.4.7\nSansita Swashed|d|3.4.5.6.7.8.9\nSansita|s|4.7.8.9\nSarabun|s|1.2.3.4.5.6.7.8\nSarala|s|4.7\nSarina|d|4\nSarpanch|s|4.5.6.7.8.9\nSassy Frass|h|4\nSatisfy|h|4\nSavate|s|2.3.4.5.6.7.8.9\nSawarabi Gothic|s|4\nSawarabi Mincho|r|4\nScada|s|4.7\nScheherazade New|r|4.5.6.7\nSchibsted Grotesk|s|4.5.6.7.8.9\nSchoolbell|h|4\nScience Gothic|s|1.2.3.4.5.6.7.8.9\nScope One|r|4\nSeaweed Script|d|4\nSecular One|s|4\nSedan SC|r|4\nSedan|r|4\nSedgwick Ave Display|h|4\nSedgwick Ave|h|4\nSekuya|d|4\nSend Flowers|h|4\nSen|s|4.5.6.7.8\nSevillana|d|4\nSeymour One|s|4\nShadows Into Light Two|h|4\nShadows Into Light|h|4\nShafarik|d|4\nShalimar|h|4\nShantell Sans|d|3.4.5.6.7.8\nShanti|s|4\nShare Tech Mono|m|4\nShare Tech|s|4\nShare|s|4.7\nShippori Antique B1|s|4\nShippori Antique|s|4\nShippori Mincho B1|r|4.5.6.7.8\nShippori Mincho|r|4.5.6.7.8\nShizuru|d|4\nShojumaru|d|4\nShort Stack|h|4\nShrikhand|d|4\nSiemreap|s|4\nSigmar One|d|4\nSigmar|d|4\nSignika Negative|s|3.4.5.6.7\nSignika|s|3.4.5.6.7\nSilkscreen|d|4.7\nSimonetta|d|4.9\nSingle Day|d|4\nSintony|s|4.7\nSirin Stencil|d|4\nSirivennela|s|4\nSix Caps|s|4\nSixtyfour Convergence|m|4\nSixtyfour|m|4\nSkranji|d|4.7\nSlabo 13px|r|4\nSlabo 27px|r|4\nSlackey|d|4\nSlackside One|h|4\nSmokum|d|4\nSmooch Sans|s|1.2.3.4.5.6.7.8.9\nSmooch|h|4\nSmythe|d|4\nSniglet|d|4.8\nSnippet|s|4\nSnowburst One|d|4\nSofadi One|d|4\nSofia Sans Condensed|s|1.2.3.4.5.6.7.8.9\nSofia Sans Extra Condensed|s|1.2.3.4.5.6.7.8.9\nSofia Sans Semi Condensed|s|1.2.3.4.5.6.7.8.9\nSofia Sans|s|1.2.3.4.5.6.7.8.9\nSofia|h|4\nSolitreo|h|4\nSolway|r|3.4.5.7.8\nSometype Mono|m|4.5.6.7\nSong Myung|r|4\nSono|s|2.3.4.5.6.7.8\nSonsie One|d|4\nSora|s|1.2.3.4.5.6.7.8\nSorts Mill Goudy|r|4\nSour Gummy|s|1.2.3.4.5.6.7.8.9\nSource Code Pro|m|2.3.4.5.6.7.8.9\nSource Sans 3|s|2.3.4.5.6.7.8.9\nSource Serif 4|r|2.3.4.5.6.7.8.9\nSpace Grotesk|s|3.4.5.6.7\nSpace Mono|m|4.7\nSpecial Elite|d|4\nSpecial Gothic Condensed One|s|4\nSpecial Gothic Expanded One|s|4\nSpecial Gothic|s|4.5.6.7\nSpectral SC|r|2.3.4.5.6.7.8\nSpectral|r|2.3.4.5.6.7.8\nSpicy Rice|d|4\nSpinnaker|s|4\nSpirax|d|4\nSplash|h|4\nSpline Sans Mono|m|3.4.5.6.7\nSpline Sans|s|3.4.5.6.7\nSquada One|d|4\nSquare Peg|h|4\nSree Krushnadevaraya|r|4\nSriracha|h|4\nSrisakdi|d|4.7\nStaatliches|d|4\nStack Sans Headline|s|2.3.4.5.6.7\nStack Sans Notch|s|2.3.4.5.6.7\nStack Sans Text|s|2.3.4.5.6.7\nStalemate|h|4\nStalinist One|d|4\nStardos Stencil|d|4.7\nStick No Bills|s|2.3.4.5.6.7.8\nStick|s|4\nStint Ultra Condensed|r|4\nStint Ultra Expanded|r|4\nSTIX Two Text|r|4.5.6.7\nStoke|r|3.4\nStory Script|s|4\nStrait|s|4\nStyle Script|h|4\nStylish|s|4\nSue Ellen Francisco|h|4\nSuez One|r|4\nSulphur Point|s|3.4.7\nSumana|r|4.7\nSunflower|s|3.5.7\nSunshiney|h|4\nSupermercado One|d|4\nSuranna|r|4\nSuravaram|r|4\nSura|r|4.7\nSUSE Mono|s|1.2.3.4.5.6.7.8\nSUSE|s|1.2.3.4.5.6.7.8.9\nSuwannaphum|r|1.3.4.7.9\nSwanky and Moo Moo|h|4\nSyncopate|s|4.7\nSyne Mono|m|4\nSyne Tactile|d|4\nSyne|s|4.5.6.7.8\nTac One|s|4\nTagesschrift|d|4\nTai Heritage Pro|r|4.7\nTajawal|s|2.3.4.5.7.8.9\nTangerine|h|4.7\nTapestry|h|4\nTaprom|d|4\nTASA Explorer|s|4.5.6.7.8\nTASA Orbiter|s|4.5.6.7.8\nTauri|s|4\nTaviraj|r|1.2.3.4.5.6.7.8.9\nTeachers|s|4.5.6.7.8\nTeko|s|3.4.5.6.7\nTektur|d|4.5.6.7.8.9\nTelex|s|4\nTenali Ramakrishna|s|4\nTenor Sans|s|4\nText Me One|s|4\nTexturina|r|1.2.3.4.5.6.7.8.9\nThasadith|s|4.7\nThe Girl Next Door|h|4\nThe Nautigal|h|4.7\nTienne|r|4.7.9\nTikTok Sans|s|3.4.5.6.7.8.9\nTillana|d|4.5.6.7.8\nTilt Neon|d|4\nTilt Prism|d|4\nTilt Warp|d|4\nTimmana|s|4\nTinos|r|4.7\nTiny5|s|4\nTiro Bangla|r|4\nTiro Devanagari Hindi|r|4\nTiro Devanagari Marathi|r|4\nTiro Devanagari Sanskrit|r|4\nTiro Gurmukhi|r|4\nTiro Kannada|r|4\nTiro Tamil|r|4\nTiro Telugu|r|4\nTirra|s|4.5.6.7.8.9\nTitan One|d|4\nTitillium Web|s|2.3.4.6.7.9\nTomorrow|s|1.2.3.4.5.6.7.8.9\nTourney|d|1.2.3.4.5.6.7.8.9\nTrade Winds|d|4\nTrain One|d|4\nTriodion|d|4\nTrirong|r|1.2.3.4.5.6.7.8.9\nTrispace|s|1.2.3.4.5.6.7.8\nTrocchi|r|4\nTrochut|d|4.7\nTruculenta|s|1.2.3.4.5.6.7.8.9\nTrykker|r|4\nTsukimi Rounded|s|3.4.5.6.7\nTuffy|s|4.7\nTulpen One|d|4\nTurret Road|d|2.3.4.5.7.8\nTwinkle Star|h|4\nUbuntu Condensed|s|4\nUbuntu Mono|m|4.7\nUbuntu Sans Mono|m|4.5.6.7\nUbuntu Sans|s|1.2.3.4.5.6.7.8\nUbuntu|s|3.4.5.7\nUchen|r|4\nUltra|r|4\nUnbounded|s|2.3.4.5.6.7.8.9\nUncial Antiqua|d|4\nUnderdog|d|4\nUnica One|d|4\nUnifrakturCook|d|7\nUnifrakturMaguntia|d|4\nUnkempt|d|4.7\nUnlock|d|4\nUnna|r|4.7\nUoqMunThenKhung|r|4\nUpdock|h|4\nUrbanist|s|1.2.3.4.5.6.7.8.9\nVampiro One|d|4\nVarela Round|s|4\nVarela|s|4\nVarta|s|3.4.5.6.7\nVast Shadow|r|4\nVazirmatn|s|1.2.3.4.5.6.7.8.9\nVend Sans|s|3.4.5.6.7\nVesper Libre|r|4.5.7.9\nViaoda Libre|d|4\nVibes|d|4\nVibur|h|4\nVictor Mono|m|1.2.3.4.5.6.7\nVidaloka|r|4\nViga|s|4\nVina Sans|d|4\nVoces|s|4\nVolkhov|r|4.7\nVollkorn SC|r|4.6.7.9\nVollkorn|r|4.5.6.7.8.9\nVoltaire|s|4\nVT323|m|4\nVujahday Script|h|4\nWaiting for the Sunrise|h|4\nWallpoet|d|4\nWalter Turncoat|h|4\nWarnes|d|4\nWater Brush|h|4\nWaterfall|h|4\nWavefont|d|1.2.3.4.5.6.7.8.9\nWDXL Lubrifont JP N|s|4\nWDXL Lubrifont SC|s|4\nWDXL Lubrifont TC|s|4\nWellfleet|r|4\nWendy One|s|4\nWhisper|h|4\nWindSong|h|4.5\nWinky Rough|s|3.4.5.6.7.8.9\nWinky Sans|s|3.4.5.6.7.8.9\nWire One|s|4\nWittgenstein|r|4.5.6.7.8.9\nWix Madefor Display|s|4.5.6.7.8\nWix Madefor Text|s|4.5.6.7.8\nWork Sans|s|1.2.3.4.5.6.7.8.9\nWorkbench|m|4\nXanh Mono|m|4\nYaldevi|s|2.3.4.5.6.7\nYanone Kaffeesatz|s|2.3.4.5.6.7\nYantramanav|s|1.3.4.5.7.9\nYarndings 12 Charted|d|4\nYarndings 12|d|4\nYarndings 20 Charted|d|4\nYarndings 20|d|4\nYatra One|d|4\nYellowtail|h|4\nYeon Sung|d|4\nYeseva One|d|4\nYesteryear|h|4\nYomogi|h|4\nYoung Serif|r|4\nYrsa|r|3.4.5.6.7\nYsabeau Infant|s|1.2.3.4.5.6.7.8.9\nYsabeau Office|s|1.2.3.4.5.6.7.8.9\nYsabeau SC|s|1.2.3.4.5.6.7.8.9\nYsabeau|s|1.2.3.4.5.6.7.8.9\nYuji Boku|r|4\nYuji Hentaigana Akari|h|4\nYuji Hentaigana Akebono|h|4\nYuji Mai|r|4\nYuji Syuku|r|4\nYusei Magic|s|4\nZain|s|2.3.4.7.8.9\nZalando Sans Expanded|s|2.3.4.5.6.7.8.9\nZalando Sans SemiExpanded|s|2.3.4.5.6.7.8.9\nZalando Sans|s|2.3.4.5.6.7.8.9\nZCOOL KuaiLe|s|4\nZCOOL QingKe HuangYou|s|4\nZCOOL XiaoWei|s|4\nZen Antique Soft|r|4\nZen Antique|r|4\nZen Dots|d|4\nZen Kaku Gothic Antique|s|3.4.5.7.9\nZen Kaku Gothic New|s|3.4.5.7.9\nZen Kurenaido|s|4\nZen Loop|d|4\nZen Maru Gothic|s|3.4.5.7.9\nZen Old Mincho|r|4.5.6.7.9\nZen Tokyo Zoo|d|4\nZeyada|h|4\nZhi Mang Xing|h|4\nZilla Slab Highlight|r|4.7\nZilla Slab|r|3.4.5.6.7";</script>
+<script type="module">
+// =====================================================================
+//  1. 폰트 목록 (FONT_DATA는 위쪽 <script>에 들어 있음)
+// =====================================================================
+const CAT_NAMES = { s: 'Sans', r: 'Serif', d: 'Display', h: 'Handwriting', m: 'Mono' };
+const FONTS = FONT_DATA.split('\n').map((row) => {
+  const [family, cat, w] = row.split('|');
+  return { family, cat, weights: w.split('.').map((n) => Number(n) * 100) };
+});
+const BY_NAME = new Map(FONTS.map((f) => [f.family.toLowerCase(), f]));
+const DEFAULT_FONT = 'Archivo';
+
+const WEIGHT_NAMES = { 100: 'Thin', 200: 'Extra Light', 300: 'Light', 400: 'Regular', 500: 'Medium', 600: 'Semibold', 700: 'Bold', 800: 'Extra Bold', 900: 'Black' };
+const SIZES = { s: 'clamp(20px, 3.6vw, 30px)', m: 'clamp(28px, 5.6vw, 52px)', l: 'clamp(36px, 8.2vw, 78px)' };
+const TRACKS = { tight: '-0.04em', normal: '-0.01em', loose: '0.08em' };
+const CASES = { none: 'none', uppercase: 'uppercase', lowercase: 'lowercase' };
+const ALIGNS = { left: 'left', center: 'center', right: 'right' };
+const MAX = 80;
+const DEFAULT_LINE = 'It’s still about communication.';
+
+// =====================================================================
+//  2. 구글 폰트 불러오기
+// =====================================================================
+const loaded = new Set();     // 전체 굵기까지 불러온 폰트
+const previewed = new Set();  // 특정 글자만 불러온 폰트 (미리보기용)
+const fam = (name) => name.trim().replace(/ /g, '+');
+
+function addSheet(href) {
+  const l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = href;
+  document.head.appendChild(l);
+  return l;
+}
+
+function sheetReady(link) {
+  return new Promise((res) => { link.onload = res; link.onerror = res; });
+}
+
+// 폰트 전체: 가진 굵기를 다 불러와서 굵기 버튼이 바로 바뀌게
+function loadFont(f) {
+  if (loaded.has(f.family)) return Promise.resolve();
+  loaded.add(f.family);
+  const link = addSheet(`https://fonts.googleapis.com/css2?family=${fam(f.family)}:wght@${f.weights.join(';')}&display=swap`);
+  return sheetReady(link).then(() =>
+    Promise.all(f.weights.map((w) => document.fonts.load(`${w} 24px "${f.family}"`).catch(() => null))));
+}
+
+// 미리보기: 필요한 글자만 (요청이 아주 작음)
+function previewFont(f, text) {
+  const key = f.family + '|' + text;
+  if (loaded.has(f.family) || previewed.has(key)) return Promise.resolve();
+  previewed.add(key);
+  const link = addSheet(`https://fonts.googleapis.com/css2?family=${fam(f.family)}&text=${encodeURIComponent(text)}&display=swap`);
+  return sheetReady(link).then(() => document.fonts.load(`24px "${f.family}"`, text).catch(() => null));
+}
+
+const $ = (id) => document.getElementById(id);
+const line = $('line'), count = $('count'), fontnote = $('fontnote');
+const q = $('fontq'), results = $('results'), curname = $('curname'), weightsBox = $('weights');
+
+let font = BY_NAME.get(DEFAULT_FONT.toLowerCase());
+let wght = 400;
+let catFilter = '';
+let matches = [], active = -1;
+
+const pick = (table, v, fallback) => (Object.prototype.hasOwnProperty.call(table, v) ? v : fallback);
+const nearestWeight = (f, w) => f.weights.reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a));
+const stack = (f) => `"${f.family}", ${f.cat === 'r' ? 'Georgia, serif' : f.cat === 'm' ? 'ui-monospace, monospace' : f.cat === 'h' ? 'cursive' : 'Arial, sans-serif'}`;
+const randomFont = (pool = FONTS) => pool[Math.floor(Math.random() * pool.length)];
+
+// =====================================================================
+//  3. 제목 — 단어에 마우스를 올리면 랜덤 폰트로 바뀜
+// =====================================================================
+function setupTitle() {
+  const title = $('title');
+  const words = title.textContent.trim().split(/\s+/);
+  title.replaceChildren();
+  words.forEach((word, i) => {
+    const span = document.createElement('span');
+    span.className = 'w';
+    span.textContent = word;
+    let busy = false;
+    const swap = async () => {
+      if (busy) return;
+      busy = true;
+      const f = randomFont();
+      await previewFont(f, word);       // 글자가 준비된 뒤에 바꿔서 깜빡임 없음
+      span.style.fontFamily = stack(f);
+      span.title = f.family;
+      busy = false;
+    };
+    span.addEventListener('mouseenter', swap);
+    span.addEventListener('click', swap);    // 터치 화면에서는 탭으로
+    title.append(span);
+    if (i < words.length - 1) title.append(' ');
+  });
+}
+setupTitle();
+
+// =====================================================================
+//  4. Bench — 입력과 세팅
+// =====================================================================
+// 화면에 그릴 수 있는 값만 남김
+function clean(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const text = typeof raw.text === 'string' ? raw.text.trim().slice(0, MAX) : '';
+  if (!text) return null;
+  const f = BY_NAME.get(String(raw.font || '').toLowerCase()) || BY_NAME.get(DEFAULT_FONT.toLowerCase());
+  return {
+    text,
+    font: f.family,
+    wght: nearestWeight(f, Number(raw.wght) || 400),
+    size: pick(SIZES, raw.size, 'm'),
+    track: pick(TRACKS, raw.track, 'normal'),
+    tcase: pick(CASES, raw.tcase, 'none'),
+    align: pick(ALIGNS, raw.align, 'left'),
+  };
+}
+
+function applySetting(el, s) {
+  const f = BY_NAME.get(s.font.toLowerCase());
+  el.style.fontFamily = stack(f);
+  el.style.fontWeight = s.wght;
+  el.style.fontSize = SIZES[s.size];
+  el.style.letterSpacing = TRACKS[s.track];
+  el.style.textTransform = CASES[s.tcase];
+  el.style.textAlign = s.align;
+  el.style.lineHeight = f.cat === 'h' ? '1.1' : '1.15';
+}
+
+const radio = (name) => (document.querySelector(`input[name="${name}"]:checked`) || {}).value;
+function setRadio(name, value) {
+  const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+  if (el) el.checked = true;
+}
+
+function currentSetting() {
+  return {
+    text: line.value.trim() || DEFAULT_LINE,
+    font: font.family, wght,
+    size: radio('size'), track: radio('track'), tcase: radio('tcase'), align: radio('align'),
+  };
+}
+
+function fit() { line.style.height = 'auto'; line.style.height = line.scrollHeight + 'px'; }
+
+function refreshStage() {
+  applySetting(line, clean(currentSetting()));
+  const n = line.value.length;
+  count.textContent = `${n} / ${MAX}`;
+  count.className = n >= MAX - 10 ? 'near' : '';
+  fit();
+}
+
+function renderWeights() {
+  weightsBox.replaceChildren();
+  for (const w of font.weights) {
+    const id = 'w-' + w;
+    const input = document.createElement('input');
+    input.className = 'vh'; input.type = 'radio'; input.name = 'wght'; input.id = id; input.value = w;
+    input.checked = w === wght;
+    input.addEventListener('change', () => { wght = w; refreshStage(); });
+    const label = document.createElement('label');
+    label.htmlFor = id;
+    label.textContent = WEIGHT_NAMES[w] || w;
+    weightsBox.append(input, label);
+  }
+}
+
+async function chooseFont(f, keepWeight) {
+  font = f;
+  wght = nearestWeight(f, keepWeight || wght);
+  curname.textContent = f.family;
+  curname.style.fontFamily = stack(f);
+  renderWeights();
+  refreshStage();
+  fontnote.textContent = `Loading ${f.family}…`;
+  fontnote.className = 'loading';
+  await loadFont(f);
+  if (font === f) { fontnote.textContent = `${f.family} · ${CAT_NAMES[f.cat]}`; fontnote.className = ''; }
+  fit();
+}
+
+// ---------- 폰트 검색 ----------
+function search() {
+  const term = q.value.trim().toLowerCase();
+  const pool = catFilter ? FONTS.filter((f) => f.cat === catFilter) : FONTS;
+  matches = [];
+  if (term) {
+    const starts = [], contains = [];
+    for (const f of pool) {
+      const n = f.family.toLowerCase();
+      if (n.startsWith(term)) starts.push(f);
+      else if (n.includes(term)) contains.push(f);
+    }
+    matches = starts.concat(contains).slice(0, 12);
+  }
+  active = matches.length ? 0 : -1;
+  renderResults(term);
+}
+
+function renderResults(term) {
+  results.replaceChildren();
+  if (!term) { closeResults(); return; }
+  if (!matches.length) {
+    const li = document.createElement('li');
+    li.className = 'none';
+    li.textContent = `No Google font matches “${q.value.trim()}”${catFilter ? ' in ' + CAT_NAMES[catFilter] : ''}.`;
+    results.append(li);
+  }
+  matches.forEach((f, i) => {
+    previewFont(f, f.family);
+    const li = document.createElement('li');
+    li.id = 'opt-' + i;
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-selected', String(i === active));
+    const sample = document.createElement('span');
+    sample.className = 'sample';
+    sample.textContent = f.family;
+    sample.style.fontFamily = stack(f);
+    const cat = document.createElement('span');
+    cat.className = 'cat';
+    cat.textContent = `${CAT_NAMES[f.cat]} · ${f.weights.length} wt`;
+    li.append(sample, cat);
+    li.addEventListener('mousedown', (e) => { e.preventDefault(); select(i); });
+    results.append(li);
+  });
+  results.hidden = false;
+  q.setAttribute('aria-expanded', 'true');
+  q.setAttribute('aria-activedescendant', active >= 0 ? 'opt-' + active : '');
+}
+
+function closeResults() {
+  results.hidden = true;
+  q.setAttribute('aria-expanded', 'false');
+  q.removeAttribute('aria-activedescendant');
+}
+
+function select(i) {
+  const f = matches[i];
+  if (!f) return;
+  q.value = '';
+  closeResults();
+  chooseFont(f);
+}
+
+function moveActive(d) {
+  if (!matches.length) return;
+  active = (active + d + matches.length) % matches.length;
+  [...results.children].forEach((li, i) => li.setAttribute('aria-selected', String(i === active)));
+  q.setAttribute('aria-activedescendant', 'opt-' + active);
+  const el = $('opt-' + active);
+  if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+q.addEventListener('input', search);
+q.addEventListener('focus', () => { if (q.value.trim()) search(); });
+q.addEventListener('blur', () => setTimeout(closeResults, 120));
+q.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (active >= 0) select(active); }
+  else if (e.key === 'Escape') { closeResults(); }
+});
+
+document.querySelectorAll('.filters .chip').forEach((b) => {
+  b.addEventListener('click', () => {
+    catFilter = b.dataset.cat;
+    document.querySelectorAll('.filters .chip').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    if (q.value.trim()) search(); else q.focus();
+  });
+});
+
+$('shuffle').addEventListener('click', () => {
+  chooseFont(randomFont(catFilter ? FONTS.filter((f) => f.cat === catFilter) : FONTS));
+});
+
+line.addEventListener('input', refreshStage);
+$('controls').addEventListener('change', (e) => { if (e.target.name !== 'wght') refreshStage(); });
+window.addEventListener('resize', fit);
+
+
+chooseFont(font, 400);
+
+</script>
+</body>
+</html>
